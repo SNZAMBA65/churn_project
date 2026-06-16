@@ -1,0 +1,22 @@
+# Environnement virtuel
+venv/
+.env
+
+# Données (trop lourdes pour Git)
+data/
+
+# Modèles sérialisés
+models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
