@@ -1,0 +1,5 @@
+Modèle,AUC moyen,Écart-type,AUC min,AUC max
+Régression Logistique,0.8454,0.0141,0.8242,0.864
+Arbre de Décision,0.8248,0.0112,0.8064,0.8401
+Random Forest,0.8433,0.0125,0.8274,0.8602
+Random Forest Optimisé,0.8448,0.0123,0.8264,0.8601
