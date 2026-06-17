@@ -1,5 +1,9 @@
-Modèle,Accuracy,Precision (Churné),Recall (Churné),F1 (Churné),AUC-ROC
-Régression Logistique,0.7402,0.5069,0.7861,0.6164,0.8414
-Arbre de Décision,0.7346,0.5,0.8075,0.6176,0.8308
-Random Forest,0.7537,0.5247,0.7674,0.6232,0.8382
-Random Forest Optimisé,0.7622,0.5355,0.7861,0.6371,0.842
+Modèle,Accuracy,Precision,Recall,F1,AUC-ROC
+Régression Logistique,0.7381,0.5042,0.7968,0.6176,0.8405
+Arbre de Décision,0.7438,0.5118,0.754,0.6097,0.8186
+Random Forest,0.7622,0.5388,0.7246,0.618,0.8404
+XGBoost,0.7317,0.4967,0.8128,0.6166,0.8329
+LightGBM,0.7779,0.5746,0.6283,0.6003,0.8354
+Random Forest Optimisé,0.7757,0.5671,0.6551,0.6079,0.8319
+XGBoost Optimisé,0.7502,0.5202,0.7567,0.6166,0.8266
+LightGBM Optimisé,0.7743,0.5707,0.6043,0.587,0.8284
