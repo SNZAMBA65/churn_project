@@ -10,7 +10,7 @@ import seaborn as sns
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score,
     f1_score, roc_auc_score, roc_curve,
-    confusion_matrix, classification_report
+    confusion_matrix
 )
 from sklearn.model_selection import learning_curve
 import logging

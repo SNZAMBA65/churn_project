@@ -4,7 +4,6 @@
 # ============================================================
 
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
@@ -94,8 +93,7 @@ def split_and_scale(
     Retourne : X_train_raw, X_test, X_train_resampled, X_test_scaled, y_train_resampled, y_test
 
     Note : SMOTE est appliqué sur les données scalées uniquement.
-    Après SMOTE, X_train_resampled et y_train_resampled sont cohérents.
-    Tous les modèles utilisent ensuite X_train_resampled.
+    Tous les modèles utilisent ensuite X_train_resampled pour cohérence.
     """
     logger.info("Séparation train/test et normalisation...")
 
