@@ -223,20 +223,24 @@ def chart(fig):
 
 # ─── Données et modèles ────────────────────────────────────────────────────────
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXPORTS_DIR = os.path.join(BASE_DIR, 'exports')
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
 @st.cache_data
 def load_data():
-    return pd.read_csv('../exports/dataset_clean.csv')
+    return pd.read_csv(os.path.join(EXPORTS_DIR, 'dataset_clean.csv'))
 
 
 @st.cache_data
 def load_results():
-    return pd.read_csv('../exports/resultats_modeles.csv')
+    return pd.read_csv(os.path.join(EXPORTS_DIR, 'resultats_modeles.csv'))
 
 
 @st.cache_data
 def load_cv_results():
     try:
-        return pd.read_csv('../exports/validation_croisee.csv')
+        return pd.read_csv(os.path.join(EXPORTS_DIR, 'validation_croisee.csv'))
     except FileNotFoundError:
         return None
 
@@ -249,20 +253,20 @@ def load_models():
         'Random Forest': 'random_forest.pkl',
         'XGBoost': 'xgboost.pkl',
         'LightGBM': 'lightgbm.pkl',
-        'Random Forest Optimisé': 'random_forest_optimisé_best.pkl',
-        'XGBoost Optimisé': 'xgboost_optimisé_best.pkl',
-        'LightGBM Optimisé': 'lightgbm_optimisé_best.pkl',
+        'Random Forest Optimisé': 'random_forest_best.pkl',
+        'XGBoost Optimisé': 'xgboost_best.pkl',
+        'LightGBM Optimisé': 'lightgbm_best.pkl',
     }
     models = {}
     for name, fname in model_files.items():
-        path = f'../models/{fname}'
+        path = os.path.join(MODELS_DIR, fname)
         if os.path.exists(path):
             models[name] = joblib.load(path)
 
-    scaler = joblib.load('../models/scaler.pkl')
-    feature_names = joblib.load('../models/feature_names.pkl')
+    scaler = joblib.load(os.path.join(MODELS_DIR, 'scaler.pkl'))
+    feature_names = joblib.load(os.path.join(MODELS_DIR, 'feature_names.pkl'))
 
-    threshold_path = '../models/optimal_threshold.pkl'
+    threshold_path = os.path.join(MODELS_DIR, 'optimal_threshold.pkl')
     optimal_threshold = joblib.load(threshold_path) if os.path.exists(threshold_path) else 0.5
 
     return models, scaler, feature_names, optimal_threshold
@@ -290,8 +294,7 @@ def prepare_test_data():
     _, X_test, _, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    scaler = joblib.load('../models/scaler.pkl')
-    X_test_scaled = scaler.transform(X_test)
+    X_test_scaled = joblib.load(os.path.join(MODELS_DIR, 'scaler.pkl')).transform(X_test)
 
     return X_test, X_test_scaled, y_test
 
@@ -1119,7 +1122,7 @@ elif page == "Qualité & Monitoring":
             "un écart faible indique l'absence de surapprentissage"
         )
 
-        learning_curve_path = '../exports/11_learning_curve.png'
+        learning_curve_path = os.path.join(EXPORTS_DIR, '11_learning_curve.png')
         if os.path.exists(learning_curve_path):
             st.image(learning_curve_path, use_container_width=True)
         else:
@@ -1139,7 +1142,7 @@ elif page == "Qualité & Monitoring":
             "pour détecter un éventuel data drift"
         )
 
-        evidently_path = '../exports/evidently_report.html'
+        evidently_path = os.path.join(EXPORTS_DIR, 'evidently_report.html')
         if os.path.exists(evidently_path):
             with open(evidently_path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
