@@ -1,7 +1,7 @@
 # ============================================================
 # DASHBOARD STREAMLIT - Prédiction du Churn Client
 # Projet #3 - Machine Learning · DPIA 1
-# Auteur : Samir NZAMBA · L'École Multimédia
+# Auteur : Samir NZAMBA · Fonderie de l'Image
 # ============================================================
 
 import os
@@ -356,7 +356,7 @@ with st.sidebar:
         "<div style='font-size:0.7rem;opacity:0.65;line-height:1.6;'>"
         "Mastère DPIA 1<br>"
         "Directeur de Projet IA<br>"
-        "L'École Multimédia<br>"
+        "Fonderie de l'Image<br>"
         "Projet #3 · Machine Learning"
         "</div></div>",
         unsafe_allow_html=True
