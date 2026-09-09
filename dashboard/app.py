@@ -341,9 +341,7 @@ with st.sidebar:
             list(models.keys()),
             index=list(models.keys()).index('XGBoost') if 'XGBoost' in models else 0
         )
-        sim_use_optimal = st.checkbox(
-            f"Seuil optimisé ({optimal_threshold:.2f})", value=True
-        )
+        st.markdown(f"Seuil de décision : {optimal_threshold:.2f}")
         st.markdown("---")
 
     st.markdown(
@@ -1256,7 +1254,7 @@ elif page == "Simulateur":
             model = models[sim_model_choice]
 
             proba = model.predict_proba(X_input)[0][1]
-            threshold_used = optimal_threshold if sim_use_optimal else 0.5
+            threshold_used = optimal_threshold
             prediction = int(proba >= threshold_used)
 
             if proba < 0.35:
