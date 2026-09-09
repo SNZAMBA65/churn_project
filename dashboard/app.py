@@ -250,12 +250,9 @@ def load_models():
     model_files = {
         'Régression Logistique': 'regression_logistique.pkl',
         'Arbre de Décision': 'arbre_de_decision.pkl',
-        'Random Forest': 'random_forest.pkl',
-        'XGBoost': 'xgboost.pkl',
-        'LightGBM': 'lightgbm.pkl',
-        'Random Forest Optimisé': 'random_forest_best.pkl',
-        'XGBoost Optimisé': 'xgboost_best.pkl',
-        'LightGBM Optimisé': 'lightgbm_best.pkl',
+        'Random Forest': 'random_forest_best.pkl',
+        'XGBoost': 'xgboost_best.pkl',
+        'LightGBM': 'lightgbm_best.pkl',
     }
     models = {}
     for name, fname in model_files.items():
@@ -342,7 +339,7 @@ with st.sidebar:
         sim_model_choice = st.selectbox(
             "Modèle",
             list(models.keys()),
-            index=list(models.keys()).index('XGBoost Optimisé') if 'XGBoost Optimisé' in models else 0
+            index=list(models.keys()).index('XGBoost') if 'XGBoost' in models else 0
         )
         sim_use_optimal = st.checkbox(
             f"Seuil optimisé ({optimal_threshold:.2f})", value=True
@@ -940,7 +937,7 @@ elif page == "Performance des modèles":
             name for name, m in models.items()
             if hasattr(m, 'feature_importances_')
         ]
-        default_fi = 'XGBoost Optimisé' if 'XGBoost Optimisé' in tree_models else (
+        default_fi = 'XGBoost' if 'XGBoost' in tree_models else (
             tree_models[0] if tree_models else list(models.keys())[0]
         )
 
@@ -1052,7 +1049,7 @@ elif page == "Qualité & Monitoring":
 
     # ── Seuil de décision ────────────────────────────────────────
     with tab1:
-        best_name = 'XGBoost Optimisé' if 'XGBoost Optimisé' in models else list(models.keys())[0]
+        best_name = 'XGBoost' if 'XGBoost' in models else list(models.keys())[0]
         best_model = models[best_name]
         y_proba = best_model.predict_proba(X_test_scaled)[:, 1]
 
