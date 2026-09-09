@@ -1,129 +1,272 @@
 # ============================================================
 # DASHBOARD STREAMLIT - Prédiction du Churn Client
+# Projet #3 - Machine Learning · DPIA 1
+# Auteur : Samir NZAMBA · L'École Multimédia
 # ============================================================
 
-import streamlit as st
+import os
+import sys
+import joblib
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import joblib
+import streamlit as st
+import warnings
+warnings.filterwarnings("ignore")
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 from sklearn.metrics import (
     roc_curve, roc_auc_score, confusion_matrix,
-    classification_report, f1_score, recall_score,
-    precision_score, accuracy_score
+    f1_score, recall_score, precision_score, accuracy_score
 )
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import warnings
-warnings.filterwarnings('ignore')
 
-# ============================================================
-# CONFIGURATION DE LA PAGE
-# ============================================================
+# ─── Configuration ────────────────────────────────────────────────────────────
+
 st.set_page_config(
-    page_title="Churn Predictor - Telco",
+    page_title="Churn Analytics · Telco",
     page_icon="📡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# ============================================================
-# CSS PERSONNALISÉ
-# ============================================================
 st.markdown("""
 <style>
-    /* Fond général */
-    .stApp { background-color: #0f1117; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1a1f2e 0%, #16213e 100%);
-        border-right: 1px solid #2d3561;
-    }
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+}
 
-    /* Titres */
-    h1, h2, h3 { color: #e2e8f0 !important; }
+.block-container {
+    padding: 2rem 2.75rem !important;
+    max-width: 1380px !important;
+}
 
-    /* Cartes métriques */
-    .metric-card {
-        background: linear-gradient(135deg, #1e2a45 0%, #2d3561 100%);
-        border: 1px solid #3d4f7c;
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        margin: 5px;
-    }
-    .metric-value {
-        font-size: 2.2em;
-        font-weight: 800;
-        color: #60a5fa;
-    }
-    .metric-label {
-        font-size: 0.85em;
-        color: #94a3b8;
-        margin-top: 5px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .metric-delta {
-        font-size: 0.8em;
-        color: #34d399;
-        margin-top: 3px;
-    }
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #1c2541 0%, #0d1321 100%) !important;
+}
+[data-testid="stSidebar"] * { color: #ffffff !important; }
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.12) !important;
+    margin: 1.1rem 0 !important;
+}
+[data-testid="stSidebar"] .stRadio label {
+    font-size: 0.875rem !important;
+    padding: 0.45rem 0.75rem !important;
+    border-radius: 7px !important;
+}
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stCheckbox label {
+    font-size: 0.68rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.09em !important;
+    opacity: 0.55 !important;
+    font-weight: 600 !important;
+}
+[data-testid="stSidebar"] .stSelectbox > div > div {
+    background-color: rgba(255,255,255,0.12) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    border-radius: 6px !important;
+}
+[data-testid="stSidebar"] .stSelectbox > div > div > div { color: #ffffff !important; }
+[data-testid="stSidebar"] .stSelectbox svg { fill: #ffffff !important; }
+[data-testid="stSidebar"] ul[role="listbox"],
+[data-testid="stSidebar"] div[role="listbox"] {
+    background-color: #18213b !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+}
+[data-testid="stSidebar"] ul[role="listbox"] li,
+[data-testid="stSidebar"] div[role="listbox"] div { color: #ffffff !important; }
 
-    /* Badges */
-    .badge-high {
-        background: #dc2626;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: 600;
-    }
-    .badge-low {
-        background: #16a34a;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: 600;
-    }
+[data-testid="metric-container"] {
+    border-radius: 12px;
+    padding: 1.1rem 1.3rem 1rem 1.3rem;
+    border: 1px solid rgba(128,128,128,0.15);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
 
-    /* Plotly fond transparent */
-    .js-plotly-plot { border-radius: 12px; }
+.page-banner {
+    background: linear-gradient(135deg, #1c2541 0%, #3a4a7a 100%);
+    border-radius: 14px;
+    padding: 1.75rem 2.25rem;
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.banner-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.2rem 0;
+    line-height: 1.2;
+}
+.banner-desc {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.65);
+    margin: 0;
+}
+.banner-badge {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
 
-    /* Divider */
-    hr { border-color: #2d3561; }
+.chart-card {
+    border-radius: 12px;
+    border: 1px solid rgba(128,128,128,0.15);
+    padding: 1.25rem 1.5rem 0.75rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 1.25rem;
+}
+
+.author-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    margin-top: 0.5rem;
+}
+
+.risk-pill {
+    display: inline-block;
+    padding: 0.35rem 1rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# CHARGEMENT DES DONNÉES ET MODÈLES (mis en cache)
-# ============================================================
+# ─── Palette ──────────────────────────────────────────────────────────────────
+
+BLEU    = "#1c2541"
+ACCENT  = "#3a4a7a"
+VERT    = "#2E7D32"
+ORANGE  = "#DAA520"
+ROUGE   = "#C1002A"
+GRIS    = "#64748b"
+FONT    = "Inter, system-ui, sans-serif"
+
+PALETTE = [BLEU, ORANGE, ACCENT, VERT, ROUGE, "#6A1B9A", "#00838F"]
+COLOR_CHURN = {"No": VERT, "Yes": ROUGE}
+
+COLORSCALE_BLEU = [
+    [0,   "#c7ccdb"],
+    [0.5, "#5a6c9e"],
+    [1,   BLEU],
+]
+
+
+def plo(**kw):
+    base = dict(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=FONT, size=12),
+        margin=dict(t=20, b=20, l=8, r=16),
+        hoverlabel=dict(
+            bgcolor="#0a1628", font_size=12,
+            font_color="white", bordercolor="#1e293b",
+        ),
+    )
+    base.update(kw)
+    return base
+
+
+def ax(**kw):
+    d = dict(
+        showgrid=False,
+        linecolor="rgba(128,128,128,0.2)",
+        tickcolor="rgba(0,0,0,0)",
+        tickfont=dict(size=11),
+        title_font=dict(size=11),
+    )
+    d.update(kw)
+    return d
+
+
+def ay(**kw):
+    d = dict(
+        gridcolor="rgba(128,128,128,0.12)",
+        gridwidth=1,
+        linecolor="rgba(0,0,0,0)",
+        tickcolor="rgba(0,0,0,0)",
+        tickfont=dict(size=11),
+        title_font=dict(size=11),
+    )
+    d.update(kw)
+    return d
+
+
+def chart(fig):
+    st.plotly_chart(
+        fig, use_container_width=True,
+        config={
+            "displayModeBar": True,
+            "displaylogo": False,
+            "modeBarButtonsToRemove": ["select2d", "lasso2d", "autoScale2d"],
+        }
+    )
+
+# ─── Données et modèles ────────────────────────────────────────────────────────
+
 @st.cache_data
 def load_data():
-    df = pd.read_csv('../exports/dataset_clean.csv')
-    return df
+    return pd.read_csv('../exports/dataset_clean.csv')
+
 
 @st.cache_data
 def load_results():
     return pd.read_csv('../exports/resultats_modeles.csv')
 
+
+@st.cache_data
+def load_cv_results():
+    try:
+        return pd.read_csv('../exports/validation_croisee.csv')
+    except FileNotFoundError:
+        return None
+
+
 @st.cache_resource
 def load_models():
-    models = {
-        'Régression Logistique': joblib.load('../models/logistic_regression.pkl'),
-        'Arbre de Décision': joblib.load('../models/decision_tree.pkl'),
-        'Random Forest': joblib.load('../models/random_forest.pkl'),
-        'Random Forest Optimisé': joblib.load('../models/random_forest_best.pkl'),
+    model_files = {
+        'Régression Logistique': 'regression_logistique.pkl',
+        'Arbre de Décision': 'arbre_de_decision.pkl',
+        'Random Forest': 'random_forest.pkl',
+        'XGBoost': 'xgboost.pkl',
+        'LightGBM': 'lightgbm.pkl',
+        'Random Forest Optimisé': 'random_forest_optimisé_best.pkl',
+        'XGBoost Optimisé': 'xgboost_optimisé_best.pkl',
+        'LightGBM Optimisé': 'lightgbm_optimisé_best.pkl',
     }
+    models = {}
+    for name, fname in model_files.items():
+        path = f'../models/{fname}'
+        if os.path.exists(path):
+            models[name] = joblib.load(path)
+
     scaler = joblib.load('../models/scaler.pkl')
     feature_names = joblib.load('../models/feature_names.pkl')
-    return models, scaler, feature_names
+
+    threshold_path = '../models/optimal_threshold.pkl'
+    optimal_threshold = joblib.load(threshold_path) if os.path.exists(threshold_path) else 0.5
+
+    return models, scaler, feature_names, optimal_threshold
+
 
 @st.cache_data
 def prepare_test_data():
@@ -152,663 +295,888 @@ def prepare_test_data():
 
     return X_test, X_test_scaled, y_test
 
+
 df = load_data()
 results = load_results()
-models, scaler, feature_names = load_models()
+cv_results = load_cv_results()
+models, scaler, feature_names, optimal_threshold = load_models()
 X_test, X_test_scaled, y_test = prepare_test_data()
 
-# ============================================================
-# SIDEBAR
-# ============================================================
-with st.sidebar:
-    st.markdown("""
-    <div style='text-align:center; padding: 20px 0;'>
-        <div style='font-size:3em;'>📡</div>
-        <div style='font-size:1.3em; font-weight:800; color:#60a5fa;'>
-            Churn Predictor
-        </div>
-        <div style='font-size:0.8em; color:#64748b; margin-top:4px;'>
-            Telco Customer Analytics
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+NB_CLIENTS = len(df)
+TAUX_CHURN = (df['Churn'] == 'Yes').mean() * 100
+BEST_ROW = results.loc[results['AUC-ROC'].idxmax()]
 
-    st.divider()
+# ─── Sidebar ──────────────────────────────────────────────────────────────────
+
+with st.sidebar:
+    st.markdown(
+        "<div style='font-size:1rem;font-weight:700;"
+        "letter-spacing:-0.01em;margin-bottom:0.1rem;'>"
+        "📡 Churn Analytics</div>"
+        "<div style='font-size:0.73rem;opacity:0.5;"
+        "margin-bottom:1.25rem;'>Telco Customer · DPIA 1</div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("---")
 
     page = st.radio(
-        "Navigation",
-        ["🏠 Accueil", "🔍 Exploration", "📊 Modèles", "🎯 Simulateur"],
+        "Section",
+        ["Vue d'ensemble", "Analyse exploratoire", "Performance des modèles",
+         "Qualité & Monitoring", "Simulateur"],
         label_visibility="collapsed"
     )
 
-    st.divider()
+    st.markdown("---")
 
-    st.markdown("""
-    <div style='font-size:0.75em; color:#475569; padding:10px;'>
-        <b style='color:#64748b;'>Dataset</b><br>
-        Telco Customer Churn<br>
-        7 043 clients · 20 variables<br><br>
-        <b style='color:#64748b;'>Modèle retenu</b><br>
-        Random Forest Optimisé<br>
-        AUC-ROC : 0.8420
+    if page == "Simulateur":
+        st.markdown(
+            "<div style='font-size:0.68rem;opacity:0.55;text-transform:uppercase;"
+            "letter-spacing:0.09em;font-weight:600;margin-bottom:0.5rem;'>"
+            "Paramètres de prédiction</div>",
+            unsafe_allow_html=True
+        )
+        sim_model_choice = st.selectbox(
+            "Modèle",
+            list(models.keys()),
+            index=list(models.keys()).index('XGBoost Optimisé') if 'XGBoost Optimisé' in models else 0
+        )
+        sim_use_optimal = st.checkbox(
+            f"Seuil optimisé ({optimal_threshold:.2f})", value=True
+        )
+        st.markdown("---")
+
+    st.markdown(
+        "<div class='author-card'>"
+        "<div style='font-size:0.78rem;font-weight:600;"
+        "margin-bottom:0.3rem;'>Samir NZAMBA</div>"
+        "<div style='font-size:0.7rem;opacity:0.65;line-height:1.6;'>"
+        "Mastère DPIA 1<br>"
+        "Directeur de Projet IA<br>"
+        "L'École Multimédia<br>"
+        "Projet #3 · Machine Learning"
+        "</div></div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='font-size:0.68rem;opacity:0.45;line-height:1.9;'>"
+        "Source · Telco Customer Churn (Kaggle)<br>"
+        f"{NB_CLIENTS:,} clients · {df.shape[1]} variables<br>"
+        f"Meilleur modèle : {BEST_ROW['Modèle']}<br>"
+        f"AUC-ROC : {BEST_ROW['AUC-ROC']:.4f}"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+# ═══════════════════════════════════════════════════════════════════
+# VUE D'ENSEMBLE
+# ═══════════════════════════════════════════════════════════════════
+
+if page == "Vue d'ensemble":
+
+    st.markdown(f"""
+    <div class="page-banner">
+        <div>
+            <div class="banner-title">Prédiction du churn client</div>
+            <div class="banner-desc">
+                Modélisation du risque de résiliation · Telco Customer Dataset
+                · {NB_CLIENTS:,} clients analysés
+            </div>
+        </div>
+        <div class="banner-badge">● {BEST_ROW['Modèle']}</div>
     </div>
     """, unsafe_allow_html=True)
 
-# ============================================================
-# PAGE 1 : ACCUEIL
-# ============================================================
-if page == "🏠 Accueil":
+    k1, k2, k3, k4, k5 = st.columns(5)
+    k1.metric("Clients analysés", f"{NB_CLIENTS:,}", "dataset Telco")
+    k2.metric("Taux de churn", f"{TAUX_CHURN:.1f} %",
+              f"{(df['Churn']=='Yes').sum():,} clients perdus")
+    k3.metric("Mensualité moyenne", f"{df['MonthlyCharges'].mean():.0f} €",
+              f"médiane {df['MonthlyCharges'].median():.0f} €")
+    k4.metric("Ancienneté moyenne", f"{df['tenure'].mean():.0f} mois",
+              f"médiane {df['tenure'].median():.0f} mois")
+    k5.metric("Meilleur AUC-ROC", f"{BEST_ROW['AUC-ROC']:.4f}",
+              f"Recall {BEST_ROW['Recall']:.1%}")
 
-    st.markdown("""
-    <h1 style='text-align:center; font-size:2.5em; margin-bottom:0;'>
-        📡 Prédiction du Churn Client
-    </h1>
-    <p style='text-align:center; color:#64748b; font-size:1.1em; margin-top:8px;'>
-        Analyse et modélisation du risque de résiliation — Telco Customer Dataset
-    </p>
-    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    st.divider()
-
-    # KPIs principaux
-    total = len(df)
-    churned = (df['Churn'] == 'Yes').sum()
-    retained = total - churned
-    churn_rate = churned / total * 100
-    avg_monthly = df['MonthlyCharges'].mean()
-    avg_tenure = df['tenure'].mean()
-
-    col1, col2, col3, col4, col5 = st.columns(5)
-    kpis = [
-        (col1, str(total), "Clients analysés", ""),
-        (col2, f"{churn_rate:.1f}%", "Taux de churn", "⚠️ Déséquilibre détecté"),
-        (col3, str(churned), "Clients perdus", ""),
-        (col4, f"{avg_monthly:.0f}€", "Mensualité moyenne", ""),
-        (col5, f"{avg_tenure:.0f} mois", "Ancienneté moyenne", ""),
-    ]
-    for col, val, label, delta in kpis:
-        with col:
-            st.markdown(f"""
-            <div class='metric-card'>
-                <div class='metric-value'>{val}</div>
-                <div class='metric-label'>{label}</div>
-                <div class='metric-delta'>{delta}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.divider()
-
-    # Résumé du projet
-    col_left, col_right = st.columns([1.2, 1])
+    col_left, col_right = st.columns([1.3, 1])
 
     with col_left:
-        st.markdown("### 🎯 Objectif du projet")
-        st.markdown("""
-        <div style='background:#1e2a45; border-left:4px solid #60a5fa;
-                    border-radius:8px; padding:18px; color:#cbd5e1; line-height:1.8;'>
-        Développer un modèle de Machine Learning capable de prédire le churn
-        des clients d'un opérateur télécom, afin d'anticiper les résiliations
-        et de cibler les actions de rétention.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Objectif du projet")
+        st.caption(
+            "Anticiper les résiliations clients pour permettre des "
+            "actions de rétention ciblées"
+        )
+        st.markdown(
+            "Développer un modèle de Machine Learning capable de "
+            "prédire le churn des clients d'un opérateur télécom, "
+            "à partir de leurs caractéristiques démographiques, "
+            "contractuelles et d'usage des services."
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("### 🔬 Approche méthodologique")
-        steps = [
-            ("1", "Collecte & nettoyage", "Dataset Telco Kaggle, 7043 clients"),
-            ("2", "Analyse exploratoire", "EDA avec Seaborn & Matplotlib"),
-            ("3", "Modélisation ML", "Régression Logistique, Arbre, Random Forest"),
-            ("4", "Optimisation", "GridSearchCV, validation croisée 5-fold"),
-            ("5", "Dashboard", "Visualisation interactive Streamlit"),
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Approche méthodologique")
+        st.caption("Pipeline complet, de la donnée brute au modèle déployé")
+
+        etapes = [
+            ("1", "Collecte & nettoyage",
+             "7 043 clients, traitement des valeurs manquantes et incohérences", BLEU),
+            ("2", "Analyse exploratoire",
+             "Identification des facteurs de churn par segment client", ACCENT),
+            ("3", "Modélisation",
+             "5 algorithmes comparés : Régression Logistique, Arbre, "
+             "Random Forest, XGBoost, LightGBM", VERT),
+            ("4", "Optimisation",
+             "SMOTE, GridSearchCV, validation croisée 5-fold, seuil de décision optimisé", ORANGE),
+            ("5", "Monitoring",
+             "Suivi de la qualité du modèle et du data drift via Evidently", ROUGE),
         ]
-        for num, title, desc in steps:
+        for num, titre, desc, color in etapes:
             st.markdown(f"""
-            <div style='display:flex; align-items:center; margin:8px 0;
-                        background:#1a1f2e; border-radius:8px; padding:10px 15px;'>
-                <div style='background:#3b82f6; color:white; border-radius:50%;
-                            width:28px; height:28px; display:flex; align-items:center;
-                            justify-content:center; font-weight:800; margin-right:12px;
-                            flex-shrink:0;'>{num}</div>
+            <div style="display:flex;gap:1rem;margin-bottom:0.9rem;
+                        align-items:flex-start;">
+                <div style="min-width:1.8rem;height:1.8rem;
+                            background:{color};border-radius:50%;
+                            display:flex;align-items:center;
+                            justify-content:center;color:white;
+                            font-weight:700;font-size:0.8rem;">
+                    {num}
+                </div>
                 <div>
-                    <div style='color:#e2e8f0; font-weight:600;'>{title}</div>
-                    <div style='color:#64748b; font-size:0.85em;'>{desc}</div>
+                    <div style="font-weight:600;font-size:0.88rem;
+                                margin-bottom:0.15rem;">{titre}</div>
+                    <div style="font-size:0.8rem;opacity:0.65;
+                                line-height:1.45;">{desc}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_right:
-        st.markdown("### 🏆 Modèle retenu")
-        st.markdown("""
-        <div style='background:linear-gradient(135deg,#1e2a45,#2d3561);
-                    border:2px solid #3b82f6; border-radius:12px; padding:20px;'>
-            <div style='text-align:center; margin-bottom:15px;'>
-                <span style='font-size:1.1em; color:#60a5fa; font-weight:700;'>
-                    🌲 Random Forest Optimisé
-                </span>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown(f"### {BEST_ROW['Modèle']}")
+        st.caption("Modèle retenu pour la mise en production")
 
-        metrics = [
-            ("AUC-ROC", "0.8420", "#60a5fa"),
-            ("Accuracy", "76%", "#34d399"),
-            ("Recall (Churné)", "79%", "#f59e0b"),
-            ("F1-score", "0.64", "#a78bfa"),
+        m1, m2 = st.columns(2)
+        m1.metric("AUC-ROC", f"{BEST_ROW['AUC-ROC']:.4f}")
+        m2.metric("Accuracy", f"{BEST_ROW['Accuracy']:.1%}")
+        m1.metric("Recall (Churné)", f"{BEST_ROW['Recall']:.1%}")
+        m2.metric("F1-score", f"{BEST_ROW['F1']:.4f}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Facteurs de risque majeurs")
+        st.caption("Segments présentant le plus fort taux de churn")
+
+        risk_factors = [
+            ("Contrat mensuel", "42.7 %", ROUGE),
+            ("Nouveau client (< 12 mois)", "47.7 %", ROUGE),
+            ("Fiber optic", "41.9 %", ORANGE),
+            ("Sans support technique", "41.6 %", ORANGE),
         ]
-        for label, val, color in metrics:
+        for label, val, color in risk_factors:
             st.markdown(f"""
-            <div style='display:flex; justify-content:space-between;
-                        padding:8px 0; border-bottom:1px solid #2d3561;'>
-                <span style='color:#94a3b8;'>{label}</span>
-                <span style='color:{color}; font-weight:700;'>{val}</span>
+            <div style="display:flex;justify-content:space-between;
+                        align-items:center;padding:0.55rem 0;
+                        border-bottom:1px solid rgba(128,128,128,0.12);">
+                <span style="font-size:0.88rem;">{label}</span>
+                <span class="risk-pill" style="background:{color}1a;color:{color};">
+                    {val}
+                </span>
             </div>
             """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("""
-            <div style='margin-top:15px; padding:10px; background:#0f1117;
-                        border-radius:8px; text-align:center;'>
-                <span style='color:#64748b; font-size:0.85em;'>
-                    Hyperparamètres : n_estimators=200,
-                    max_depth=10, min_samples_split=5
-                </span>
+# ═══════════════════════════════════════════════════════════════════
+# ANALYSE EXPLORATOIRE
+# ═══════════════════════════════════════════════════════════════════
+
+elif page == "Analyse exploratoire":
+
+    st.markdown(f"""
+    <div class="page-banner">
+        <div>
+            <div class="banner-title">Analyse exploratoire</div>
+            <div class="banner-desc">
+                Comportement des clients et facteurs associés au churn
+                · {NB_CLIENTS:,} clients · {df.shape[1]} variables
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="banner-badge">● Taux de churn {TAUX_CHURN:.1f} %</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.markdown("### 📁 Fichiers produits")
-        files = [
-            ("📓", "01_eda_preparation.ipynb", "EDA complète"),
-            ("📓", "02_modelisation_validation.ipynb", "Modélisation"),
-            ("🤖", "random_forest_best.pkl", "Modèle final"),
-            ("📊", "resultats_modeles.csv", "Comparaison"),
-        ]
-        for icon, name, desc in files:
-            st.markdown(f"""
-            <div style='display:flex; align-items:center; margin:6px 0;
-                        background:#1a1f2e; border-radius:6px; padding:8px 12px;'>
-                <span style='margin-right:10px;'>{icon}</span>
-                <div>
-                    <div style='color:#e2e8f0; font-size:0.9em;'>{name}</div>
-                    <div style='color:#64748b; font-size:0.78em;'>{desc}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-# ============================================================
-# PAGE 2 : EXPLORATION DES DONNÉES
-# ============================================================
-elif page == "🔍 Exploration":
-
-    st.markdown("## 🔍 Exploration des Données")
-    st.markdown(
-        "<p style='color:#64748b;'>Analyse exploratoire du dataset Telco Customer Churn</p>",
-        unsafe_allow_html=True
-    )
-    st.divider()
-
-    # Tabs
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Distribution", "👥 Démographie", "📋 Contrat & Services", "📈 Variables numériques"
+        "Distribution", "Démographie", "Contrat & Services", "Variables numériques"
     ])
 
-    # ---- TAB 1 : Distribution du churn ----
+    # ── Distribution ─────────────────────────────────────────────
     with tab1:
+        churn_counts = df['Churn'].value_counts()
+
         col1, col2 = st.columns(2)
 
         with col1:
-            churn_counts = df['Churn'].value_counts()
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Distribution du churn")
+            st.caption("Répartition des clients retenus et perdus")
+
             fig = go.Figure(go.Bar(
-                x=churn_counts.index,
-                y=churn_counts.values,
-                marker_color=['#2ecc71', '#e74c3c'],
-                text=churn_counts.values,
-                textposition='outside',
-                textfont=dict(size=16, color='white')
+                x=churn_counts.index, y=churn_counts.values,
+                marker_color=[COLOR_CHURN[c] for c in churn_counts.index],
+                marker_opacity=0.88,
+                marker_line=dict(color="rgba(0,0,0,0)"),
+                text=churn_counts.values, textposition="outside",
+                textfont=dict(size=14, family=FONT),
+                hovertemplate="<b>%{x}</b><br>%{y:,} clients<extra></extra>",
             ))
-            fig.update_layout(
-                title='Distribution du Churn',
-                paper_bgcolor='#1e2a45',
-                plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'),
-                showlegend=False,
-                height=380
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(**plo(height=340, bargap=0.5))
+            fig.update_xaxes(**ax(tickfont=dict(size=12)))
+            fig.update_yaxes(**ay())
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Répartition (%)")
+            st.caption("Proportion churné vs retenu")
+
             fig = go.Figure(go.Pie(
-                labels=churn_counts.index,
-                values=churn_counts.values,
-                marker_colors=['#2ecc71', '#e74c3c'],
-                hole=0.45,
-                textinfo='label+percent',
-                textfont_size=14
+                labels=churn_counts.index, values=churn_counts.values,
+                hole=0.65,
+                marker=dict(
+                    colors=[COLOR_CHURN[c] for c in churn_counts.index],
+                    line=dict(color="white", width=4)
+                ),
+                textinfo="percent+label",
+                textfont=dict(size=12, color="white", family=FONT),
+                hovertemplate="<b>%{label}</b><br>%{value:,} clients<br>%{percent}<extra></extra>",
+                rotation=90, pull=[0.03, 0.03],
             ))
-            fig.update_layout(
-                title='Répartition du Churn (%)',
-                paper_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'),
-                height=380
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(**plo(
+                height=340, showlegend=False,
+                annotations=[dict(
+                    text=f"<b>{TAUX_CHURN:.0f} %</b><br>"
+                         "<span style='font-size:11px;'>churn</span>",
+                    x=0.5, y=0.5, font_size=18, showarrow=False, font=dict(family=FONT)
+                )]
+            ))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.info(
-            "⚠️ Dataset déséquilibré : 73.5% de clients retenus vs 26.5% churné. "
-            "Le paramètre class_weight='balanced' a été utilisé pour compenser."
+            f"**Dataset déséquilibré** : {100-TAUX_CHURN:.1f} % de clients retenus "
+            f"contre {TAUX_CHURN:.1f} % de churn. Ce déséquilibre est traité via "
+            f"SMOTE lors de l'entraînement des modèles."
         )
 
-    # ---- TAB 2 : Démographie ----
+    # ── Démographie ──────────────────────────────────────────────
     with tab2:
         demo_cols = ['gender', 'SeniorCitizen', 'Partner', 'Dependents']
-        col1, col2 = st.columns(2)
+        demo_labels = {'gender': 'Genre', 'SeniorCitizen': 'Senior',
+                        'Partner': 'Partenaire', 'Dependents': 'Dépendants'}
 
+        col1, col2 = st.columns(2)
         for i, col_name in enumerate(demo_cols):
             churn_rate = df.groupby(col_name)['Churn'].apply(
                 lambda x: (x == 'Yes').sum() / len(x) * 100
             ).reset_index()
-            churn_rate.columns = [col_name, 'Taux de churn (%)']
+            churn_rate.columns = [col_name, 'taux']
 
-            fig = px.bar(
-                churn_rate, x=col_name, y='Taux de churn (%)',
-                color='Taux de churn (%)',
-                color_continuous_scale='RdYlGn_r',
-                text=churn_rate['Taux de churn (%)'].apply(lambda x: f'{x:.1f}%'),
-                title=f'Churn par {col_name}'
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), showlegend=False,
-                coloraxis_showscale=False, height=350
-            )
-            if i % 2 == 0:
-                with col1:
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                with col2:
-                    st.plotly_chart(fig, use_container_width=True)
+            target = col1 if i % 2 == 0 else col2
+            with target:
+                st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+                st.markdown(f"### Churn par {demo_labels[col_name].lower()}")
+                st.caption(f"Taux de résiliation selon {demo_labels[col_name].lower()}")
 
-        st.markdown("""
-        <div style='background:#1e2a45; border-left:4px solid #f59e0b;
-                    border-radius:8px; padding:15px; color:#cbd5e1;'>
-        <b>Observations :</b> Le genre n'influence pas le churn (26.9% vs 26.2%).
-        Les seniors churne à 41.7%, les clients sans partenaire à 33.0%
-        et sans dépendants à 31.3%.
-        </div>
-        """, unsafe_allow_html=True)
+                fig = go.Figure(go.Bar(
+                    x=churn_rate[col_name], y=churn_rate['taux'],
+                    marker_color=BLEU, marker_opacity=0.85,
+                    marker_line=dict(color="rgba(0,0,0,0)"),
+                    text=churn_rate['taux'].apply(lambda x: f"{x:.1f} %"),
+                    textposition="outside",
+                    textfont=dict(size=12, family=FONT),
+                    hovertemplate="<b>%{x}</b><br>%{y:.1f} % de churn<extra></extra>",
+                ))
+                fig.update_layout(**plo(height=300, bargap=0.4))
+                fig.update_xaxes(**ax(tickfont=dict(size=12)))
+                fig.update_yaxes(**ay(range=[0, 55]))
+                chart(fig)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---- TAB 3 : Contrat & Services ----
+        st.info(
+            "Le genre n'influence pas le churn (26.9 % vs 26.2 %). Les seniors "
+            "churne à 41.7 % contre 23.6 % pour les non-seniors. L'absence de "
+            "partenaire ou de personnes à charge est associée à un taux plus élevé."
+        )
+
+    # ── Contrat & Services ───────────────────────────────────────
     with tab3:
         col1, col2 = st.columns(2)
 
         with col1:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Taux de churn par type de contrat")
+            st.caption("L'engagement contractuel est le facteur le plus discriminant")
+
             churn_contract = df.groupby('Contract')['Churn'].apply(
                 lambda x: (x == 'Yes').sum() / len(x) * 100
             ).reset_index()
-            churn_contract.columns = ['Contract', 'Taux (%)']
-            fig = px.bar(
-                churn_contract, x='Contract', y='Taux (%)',
-                color='Taux (%)', color_continuous_scale='RdYlGn_r',
-                text=churn_contract['Taux (%)'].apply(lambda x: f'{x:.1f}%'),
-                title='Taux de churn par type de contrat'
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), coloraxis_showscale=False, height=380
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            churn_contract.columns = ['Contract', 'taux']
+
+            fig = go.Figure(go.Bar(
+                x=churn_contract['Contract'], y=churn_contract['taux'],
+                marker_color=[ROUGE, ORANGE, VERT], marker_opacity=0.88,
+                marker_line=dict(color="rgba(0,0,0,0)"),
+                text=churn_contract['taux'].apply(lambda x: f"{x:.1f} %"),
+                textposition="outside", textfont=dict(size=12, family=FONT),
+                hovertemplate="<b>%{x}</b><br>%{y:.1f} % de churn<extra></extra>",
+            ))
+            fig.update_layout(**plo(height=360, bargap=0.45))
+            fig.update_xaxes(**ax(tickfont=dict(size=11)))
+            fig.update_yaxes(**ay(range=[0, 55]))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Taux de churn par ancienneté")
+            st.caption("Les nouveaux clients constituent le segment le plus à risque")
+
             df_box = df.copy()
             df_box['tenure_group'] = pd.cut(
-                df_box['tenure'],
-                bins=[0, 12, 24, 48, 72],
+                df_box['tenure'], bins=[0, 12, 24, 48, 72],
                 labels=['0-12 mois', '12-24 mois', '24-48 mois', '48-72 mois']
             )
             churn_tenure = df_box.groupby('tenure_group', observed=True)['Churn'].apply(
                 lambda x: (x == 'Yes').sum() / len(x) * 100
             ).reset_index()
-            churn_tenure.columns = ['Ancienneté', 'Taux (%)']
-            fig = px.bar(
-                churn_tenure, x='Ancienneté', y='Taux (%)',
-                color='Taux (%)', color_continuous_scale='RdYlGn_r',
-                text=churn_tenure['Taux (%)'].apply(lambda x: f'{x:.1f}%'),
-                title="Taux de churn par ancienneté"
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), coloraxis_showscale=False, height=380
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            churn_tenure.columns = ['Ancienneté', 'taux']
 
-        # Services
-        st.markdown("#### Impact des services sur le churn")
+            fig = go.Figure(go.Bar(
+                x=churn_tenure['Ancienneté'].astype(str), y=churn_tenure['taux'],
+                marker_color=[ROUGE, ORANGE, "#e0b84a", VERT], marker_opacity=0.88,
+                marker_line=dict(color="rgba(0,0,0,0)"),
+                text=churn_tenure['taux'].apply(lambda x: f"{x:.1f} %"),
+                textposition="outside", textfont=dict(size=12, family=FONT),
+                hovertemplate="<b>%{x}</b><br>%{y:.1f} % de churn<extra></extra>",
+            ))
+            fig.update_layout(**plo(height=360, bargap=0.45))
+            fig.update_xaxes(**ax(tickfont=dict(size=11)))
+            fig.update_yaxes(**ay(range=[0, 55]))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Impact des services souscrits")
+        st.caption("Taux de churn selon le type de service ou de paiement")
+
         service_cols = ['InternetService', 'OnlineSecurity', 'TechSupport', 'PaymentMethod']
-        col1, col2 = st.columns(2)
+        cols = st.columns(4)
         for i, col_name in enumerate(service_cols):
             churn_rate = df.groupby(col_name)['Churn'].apply(
                 lambda x: (x == 'Yes').sum() / len(x) * 100
             ).reset_index()
-            churn_rate.columns = [col_name, 'Taux (%)']
-            fig = px.bar(
-                churn_rate, x=col_name, y='Taux (%)',
-                color='Taux (%)', color_continuous_scale='RdYlGn_r',
-                text=churn_rate['Taux (%)'].apply(lambda x: f'{x:.1f}%'),
-                title=f'{col_name}'
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), coloraxis_showscale=False, height=320
-            )
-            if i % 2 == 0:
-                with col1:
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                with col2:
-                    st.plotly_chart(fig, use_container_width=True)
+            churn_rate.columns = [col_name, 'taux']
 
-    # ---- TAB 4 : Variables numériques ----
+            with cols[i]:
+                fig = go.Figure(go.Bar(
+                    x=churn_rate[col_name], y=churn_rate['taux'],
+                    marker_color=PALETTE[i % len(PALETTE)], marker_opacity=0.85,
+                    marker_line=dict(color="rgba(0,0,0,0)"),
+                    text=churn_rate['taux'].apply(lambda x: f"{x:.0f}%"),
+                    textposition="outside", textfont=dict(size=10, family=FONT),
+                    hovertemplate="<b>%{x}</b><br>%{y:.1f} %<extra></extra>",
+                ))
+                fig.update_layout(**plo(height=300, bargap=0.4,
+                                         margin=dict(t=30, b=20, l=4, r=4)))
+                fig.update_xaxes(**ax(tickfont=dict(size=9), tickangle=-25))
+                fig.update_yaxes(**ay(range=[0, 50], title_text=col_name, title_font=dict(size=10)))
+                chart(fig)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Variables numériques ─────────────────────────────────────
     with tab4:
         num_var = st.selectbox(
-            "Choisir une variable numérique",
-            ['tenure', 'MonthlyCharges', 'TotalCharges']
+            "Variable numérique", ['tenure', 'MonthlyCharges', 'TotalCharges']
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
-            fig = px.histogram(
-                df, x=num_var, color='Churn',
-                color_discrete_map={'No': '#2ecc71', 'Yes': '#e74c3c'},
-                barmode='overlay', opacity=0.7,
-                title=f'Distribution de {num_var} par Churn',
-                labels={'Churn': 'Churn'}
-            )
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), height=380
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown(f"### Distribution de {num_var}")
+            st.caption("Comparaison entre clients retenus et churnés")
+
+            fig = go.Figure()
+            for val, label in [("No", "Resté"), ("Yes", "Churné")]:
+                fig.add_trace(go.Histogram(
+                    x=df[df['Churn'] == val][num_var], name=label,
+                    marker_color=COLOR_CHURN[val], opacity=0.6, nbinsx=35,
+                ))
+            fig.update_layout(**plo(
+                height=360, barmode="overlay",
+                legend=dict(orientation="h", y=1.08, bgcolor="rgba(0,0,0,0)")
+            ))
+            fig.update_xaxes(**ax(title_text=num_var))
+            fig.update_yaxes(**ay(title_text="Nombre de clients"))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
-            fig = px.box(
-                df, x='Churn', y=num_var, color='Churn',
-                color_discrete_map={'No': '#2ecc71', 'Yes': '#e74c3c'},
-                title=f'Boxplot de {num_var} par Churn'
-            )
-            fig.update_layout(
-                paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'), height=380, showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown(f"### Boxplot de {num_var}")
+            st.caption("Médiane, dispersion et valeurs extrêmes")
 
-        # Stats descriptives
-        st.markdown("#### Statistiques descriptives")
-        stats = df.groupby('Churn')[num_var].describe().round(2)
-        st.dataframe(stats, use_container_width=True)
+            fig = go.Figure()
+            for val, label in [("No", "Resté"), ("Yes", "Churné")]:
+                fig.add_trace(go.Box(
+                    y=df[df['Churn'] == val][num_var], name=label,
+                    marker_color=COLOR_CHURN[val], boxmean=True,
+                ))
+            fig.update_layout(**plo(height=360, showlegend=False))
+            fig.update_xaxes(**ax())
+            fig.update_yaxes(**ay(title_text=num_var))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# ============================================================
-# PAGE 3 : PERFORMANCE DES MODÈLES
-# ============================================================
-elif page == "📊 Modèles":
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Statistiques descriptives")
+        st.caption(f"Résumé statistique de {num_var} par statut de churn")
+        st.dataframe(
+            df.groupby('Churn')[num_var].describe().round(2),
+            use_container_width=True
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("## 📊 Performance des Modèles")
-    st.markdown(
-        "<p style='color:#64748b;'>Comparaison et évaluation des modèles entraînés</p>",
-        unsafe_allow_html=True
-    )
-    st.divider()
+# ═══════════════════════════════════════════════════════════════════
+# PERFORMANCE DES MODÈLES
+# ═══════════════════════════════════════════════════════════════════
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🏆 Comparaison", "📈 Courbes ROC", "🔢 Matrices de confusion", "🌲 Feature Importance"
+elif page == "Performance des modèles":
+
+    st.markdown(f"""
+    <div class="page-banner">
+        <div>
+            <div class="banner-title">Performance des modèles</div>
+            <div class="banner-desc">
+                Comparaison de {len(models)} modèles entraînés et évalués
+                sur le jeu de test
+            </div>
+        </div>
+        <div class="banner-badge">● Meilleur AUC-ROC {BEST_ROW['AUC-ROC']:.4f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Comparaison", "Courbes ROC", "Matrices de confusion",
+        "Feature Importance", "Validation croisée"
     ])
 
-    # ---- TAB 1 : Comparaison ----
+    # ── Comparaison ──────────────────────────────────────────────
     with tab1:
-        st.markdown("#### Tableau comparatif des modèles")
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Tableau comparatif")
+        st.caption("Métriques calculées sur le jeu de test, données jamais vues à l'entraînement")
         st.dataframe(
             results.style
-            .highlight_max(subset=['Accuracy','Recall (Churné)','F1 (Churné)','AUC-ROC'],
-                          color='#1e3a5f')
+            .highlight_max(
+                subset=['Accuracy', 'Precision', 'Recall', 'F1', 'AUC-ROC'],
+                color='rgba(28,37,65,0.18)'
+            )
             .format({
-                'Accuracy': '{:.2%}',
-                'Precision (Churné)': '{:.2%}',
-                'Recall (Churné)': '{:.2%}',
-                'F1 (Churné)': '{:.4f}',
-                'AUC-ROC': '{:.4f}'
+                'Accuracy': '{:.2%}', 'Precision': '{:.2%}',
+                'Recall': '{:.2%}', 'F1': '{:.4f}', 'AUC-ROC': '{:.4f}'
             }),
-            use_container_width=True, height=180
+            use_container_width=True, height=320
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("#### Visualisation comparative")
-        metrics_to_plot = ['Accuracy', 'Precision (Churné)', 'Recall (Churné)', 'F1 (Churné)', 'AUC-ROC']
-        colors = ['#3b82f6', '#f59e0b', '#a78bfa', '#2ecc71']
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        col_titre, col_select = st.columns([3, 1])
+        with col_titre:
+            st.markdown("### Comparaison par métrique")
+            st.caption("Classement des modèles selon la métrique sélectionnée")
+        with col_select:
+            metric_choice = st.selectbox(
+                "Métrique", ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC-ROC'],
+                label_visibility="collapsed"
+            )
 
-        fig = go.Figure()
-        for i, row in results.iterrows():
-            fig.add_trace(go.Scatterpolar(
-                r=[row[m] for m in metrics_to_plot],
-                theta=metrics_to_plot,
-                fill='toself',
-                name=row['Modèle'],
-                line=dict(color=colors[i], width=2),
-                opacity=0.6
-            ))
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=[0.5, 1]),
-                bgcolor='#1a1f2e'
+        df_sorted = results.sort_values(metric_choice, ascending=True)
+        fig = go.Figure(go.Bar(
+            x=df_sorted[metric_choice], y=df_sorted['Modèle'],
+            orientation='h',
+            marker=dict(
+                color=df_sorted[metric_choice], colorscale=COLORSCALE_BLEU,
+                showscale=False, line=dict(color="rgba(0,0,0,0)")
             ),
-            paper_bgcolor='#1e2a45',
-            font=dict(color='#e2e8f0'),
-            legend=dict(bgcolor='#1a1f2e', bordercolor='#3d4f7c'),
-            height=450,
-            title='Radar des performances par modèle'
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            text=df_sorted[metric_choice].apply(lambda x: f"{x:.4f}"),
+            textposition="outside", textfont=dict(size=11, family=FONT),
+            hovertemplate="<b>%{y}</b><br>%{x:.4f}<extra></extra>",
+        ))
+        fig.update_layout(**plo(height=420))
+        fig.update_xaxes(**ax(title_text=metric_choice))
+        fig.update_yaxes(tickfont=dict(size=11), gridcolor="rgba(0,0,0,0)")
+        chart(fig)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Barplot métriques
-        metric_choice = st.selectbox(
-            "Comparer les modèles sur une métrique",
-            metrics_to_plot
-        )
-        fig = px.bar(
-            results, x='Modèle', y=metric_choice,
-            color='Modèle',
-            color_discrete_sequence=colors,
-            text=results[metric_choice].apply(lambda x: f'{x:.4f}'),
-            title=f'Comparaison - {metric_choice}'
-        )
-        fig.update_traces(textposition='outside')
-        fig.update_layout(
-            paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-            font=dict(color='#e2e8f0'), showlegend=False, height=380
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ---- TAB 2 : Courbes ROC ----
+    # ── Courbes ROC ──────────────────────────────────────────────
     with tab2:
-        model_names = list(models.keys())
-        colors_roc = ['#3b82f6', '#f59e0b', '#a78bfa', '#2ecc71']
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Courbes ROC — comparaison des modèles")
+        st.caption(
+            "Plus une courbe se rapproche du coin supérieur gauche, "
+            "meilleur est le modèle"
+        )
 
         fig = go.Figure()
         for i, (name, model) in enumerate(models.items()):
-            if 'Logistique' in name:
-                y_proba = model.predict_proba(X_test_scaled)[:, 1]
-            else:
-                y_proba = model.predict_proba(X_test)[:, 1]
+            y_proba = model.predict_proba(X_test_scaled)[:, 1]
             fpr, tpr, _ = roc_curve(y_test, y_proba)
             auc = roc_auc_score(y_test, y_proba)
             fig.add_trace(go.Scatter(
-                x=fpr, y=tpr,
-                mode='lines',
-                name=f'{name} (AUC={auc:.4f})',
-                line=dict(color=colors_roc[i], width=2.5)
+                x=fpr, y=tpr, mode='lines', name=f'{name} (AUC={auc:.4f})',
+                line=dict(color=PALETTE[i % len(PALETTE)], width=2.2),
+                hovertemplate="FPR %{x:.2f} · TPR %{y:.2f}<extra></extra>",
             ))
-
         fig.add_trace(go.Scatter(
-            x=[0, 1], y=[0, 1],
-            mode='lines',
-            name='Aléatoire (AUC=0.5)',
-            line=dict(color='#64748b', width=1.5, dash='dash')
+            x=[0, 1], y=[0, 1], mode='lines', name='Aléatoire (AUC=0.5)',
+            line=dict(color=GRIS, width=1.3, dash='dash'),
         ))
-        fig.update_layout(
-            title='Courbes ROC - Comparaison des Modèles',
-            xaxis_title='Taux de Faux Positifs',
-            yaxis_title='Taux de Vrais Positifs (Recall)',
-            paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-            font=dict(color='#e2e8f0'),
-            legend=dict(bgcolor='#1a1f2e', bordercolor='#3d4f7c'),
-            height=520
+        fig.update_layout(**plo(
+            height=540,
+            legend=dict(orientation="v", x=1.02, y=0.5, bgcolor="rgba(0,0,0,0)")
+        ))
+        fig.update_xaxes(**ax(title_text="Taux de Faux Positifs"))
+        fig.update_yaxes(**ay(title_text="Taux de Vrais Positifs"))
+        chart(fig)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.info(
+            "L'AUC mesure l'aire sous la courbe (1.0 = parfait, 0.5 = aléatoire). "
+            "Les modèles boostés (XGBoost, LightGBM) dominent légèrement "
+            "les modèles classiques sur ce jeu de données."
         )
-        st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("""
-        <div style='background:#1e2a45; border-left:4px solid #60a5fa;
-                    border-radius:8px; padding:15px; color:#cbd5e1;'>
-        <b>Lecture :</b> Plus la courbe est proche du coin supérieur gauche,
-        meilleur est le modèle. L'AUC mesure l'aire sous la courbe
-        (1.0 = parfait, 0.5 = aléatoire). Tous nos modèles dépassent 0.83.
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ---- TAB 3 : Matrices de confusion ----
+    # ── Matrices de confusion ────────────────────────────────────
     with tab3:
-        model_choice = st.selectbox("Choisir un modèle", list(models.keys()))
-
+        model_choice = st.selectbox("Modèle", list(models.keys()), key="cm_model")
         model = models[model_choice]
-        if 'Logistique' in model_choice:
-            y_pred = model.predict(X_test_scaled)
-        else:
-            y_pred = model.predict(X_test)
-
+        y_pred = model.predict(X_test_scaled)
         cm = confusion_matrix(y_test, y_pred)
         tn, fp, fn, tp = cm.ravel()
 
-        col1, col2 = st.columns([1, 1.2])
+        col1, col2 = st.columns([1, 1.1])
 
         with col1:
-            fig = px.imshow(
-                cm,
-                labels=dict(x='Prédit', y='Réel', color='Clients'),
-                x=['Resté', 'Churné'],
-                y=['Resté', 'Churné'],
-                color_continuous_scale='Blues',
-                text_auto=True,
-                title=f'Matrice de confusion - {model_choice}'
-            )
-            fig.update_traces(textfont_size=20)
-            fig.update_layout(
-                paper_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'),
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown(f"### Matrice de confusion")
+            st.caption(model_choice)
+
+            fig = go.Figure(go.Heatmap(
+                z=cm, x=['Resté', 'Churné'], y=['Resté', 'Churné'],
+                colorscale=COLORSCALE_BLEU, showscale=False,
+                text=cm, texttemplate="%{text}",
+                textfont=dict(size=18, color="white", family=FONT),
+                hovertemplate="Réel: %{y}<br>Prédit: %{x}<br>%{z} clients<extra></extra>",
+            ))
+            fig.update_layout(**plo(height=400))
+            fig.update_xaxes(title_text="Prédit", side="bottom")
+            fig.update_yaxes(title_text="Réel", autorange="reversed")
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
-            st.markdown("#### Détail des prédictions")
-            details = [
-                ("✅ Vrais Négatifs (TN)", tn,
-                 "Non-churners correctement identifiés", "#2ecc71"),
-                ("⚠️ Faux Positifs (FP)", fp,
-                 "Non-churners classés comme churners", "#f59e0b"),
-                ("❌ Faux Négatifs (FN)", fn,
-                 "Churners non détectés (cas critique)", "#e74c3c"),
-                ("✅ Vrais Positifs (TP)", tp,
-                 "Churners correctement détectés", "#3b82f6"),
-            ]
-            for label, val, desc, color in details:
-                st.markdown(f"""
-                <div style='background:#1a1f2e; border-left:4px solid {color};
-                            border-radius:8px; padding:12px 15px; margin:8px 0;'>
-                    <div style='display:flex; justify-content:space-between;'>
-                        <span style='color:#e2e8f0; font-weight:600;'>{label}</span>
-                        <span style='color:{color}; font-weight:800;
-                                     font-size:1.3em;'>{val}</span>
-                    </div>
-                    <div style='color:#64748b; font-size:0.82em; margin-top:3px;'>
-                        {desc}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Détail des prédictions")
+            st.caption("Lecture des quatre cas de la matrice")
 
-            st.markdown("#### Métriques")
             acc = accuracy_score(y_test, y_pred)
             prec = precision_score(y_test, y_pred)
             rec = recall_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
-            for label, val in [
-                ("Accuracy", f"{acc:.2%}"),
-                ("Precision", f"{prec:.2%}"),
-                ("Recall", f"{rec:.2%}"),
-                ("F1-score", f"{f1:.4f}")
-            ]:
+
+            m1, m2 = st.columns(2)
+            m1.metric("Accuracy", f"{acc:.2%}")
+            m2.metric("Precision", f"{prec:.2%}")
+            m1.metric("Recall", f"{rec:.2%}")
+            m2.metric("F1-score", f"{f1:.4f}")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            details = [
+                ("Vrais Négatifs", tn, "Non-churners correctement identifiés", VERT),
+                ("Faux Positifs", fp, "Non-churners classés comme churners", ORANGE),
+                ("Faux Négatifs", fn, "Churners non détectés — cas critique", ROUGE),
+                ("Vrais Positifs", tp, "Churners correctement détectés", BLEU),
+            ]
+            for label, val, desc, color in details:
                 st.markdown(f"""
-                <div style='display:flex; justify-content:space-between;
-                            padding:6px 0; border-bottom:1px solid #2d3561;'>
-                    <span style='color:#94a3b8;'>{label}</span>
-                    <span style='color:#60a5fa; font-weight:700;'>{val}</span>
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;padding:0.5rem 0;
+                            border-bottom:1px solid rgba(128,128,128,0.12);">
+                    <div>
+                        <div style="font-weight:600;font-size:0.85rem;">{label}</div>
+                        <div style="font-size:0.75rem;opacity:0.6;">{desc}</div>
+                    </div>
+                    <span class="risk-pill" style="background:{color}1a;color:{color};">
+                        {val}
+                    </span>
                 </div>
                 """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---- TAB 4 : Feature Importance ----
+    # ── Feature Importance ───────────────────────────────────────
     with tab4:
-        rf_best = models['Random Forest Optimisé']
-        feature_imp = pd.DataFrame({
-            'Feature': feature_names,
-            'Importance': rf_best.feature_importances_
-        }).sort_values('Importance', ascending=False).head(15)
-
-        fig = px.bar(
-            feature_imp.sort_values('Importance'),
-            x='Importance', y='Feature',
-            orientation='h',
-            color='Importance',
-            color_continuous_scale='RdYlGn',
-            text=feature_imp.sort_values('Importance')['Importance'].apply(
-                lambda x: f'{x:.3f}'
-            ),
-            title='Top 15 Features - Random Forest Optimisé'
+        tree_models = [
+            name for name, m in models.items()
+            if hasattr(m, 'feature_importances_')
+        ]
+        default_fi = 'XGBoost Optimisé' if 'XGBoost Optimisé' in tree_models else (
+            tree_models[0] if tree_models else list(models.keys())[0]
         )
-        fig.update_traces(textposition='outside')
-        fig.update_layout(
-            paper_bgcolor='#1e2a45', plot_bgcolor='#1e2a45',
-            font=dict(color='#e2e8f0'), coloraxis_showscale=False,
-            height=520, yaxis_title='', xaxis_title='Importance'
-        )
-        st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("""
-        <div style='background:#1e2a45; border-left:4px solid #2ecc71;
-                    border-radius:8px; padding:15px; color:#cbd5e1;'>
-        <b>Top 5 facteurs de churn :</b><br>
-        1. <b>tenure</b> (0.175) — Ancienneté : les nouveaux clients churne davantage<br>
-        2. <b>TotalCharges</b> (0.143) — Montant total facturé<br>
-        3. <b>MonthlyCharges</b> (0.097) — Mensualité élevée = risque accru<br>
-        4. <b>Contract_Two year</b> (0.094) — Engagement long = fidélité<br>
-        5. <b>InternetService_Fiber optic</b> (0.070) — Service à risque élevé
+        st.markdown('', unsafe_allow_html=True)
+        col_titre, col_select = st.columns([3, 1])
+        with col_titre:
+            st.markdown("### Top 15 features")
+            st.caption("Variables les plus déterminantes dans la décision du modèle")
+        with col_select:
+            if tree_models:
+                fi_model_name = st.selectbox(
+                    "Modèle", tree_models,
+                    index=tree_models.index(default_fi),
+                    label_visibility="collapsed"
+                )
+            else:
+                fi_model_name = list(models.keys())[0]
+
+        fi_model = models[fi_model_name]
+
+        if hasattr(fi_model, 'feature_importances_'):
+            feature_imp = pd.DataFrame({
+                'Feature': feature_names,
+                'Importance': fi_model.feature_importances_
+            }).sort_values('Importance', ascending=True).tail(15)
+
+            fig = go.Figure(go.Bar(
+                x=feature_imp['Importance'], y=feature_imp['Feature'],
+                orientation='h',
+                marker=dict(
+                    color=feature_imp['Importance'], colorscale=COLORSCALE_BLEU,
+                    showscale=False, line=dict(color="rgba(0,0,0,0)")
+                ),
+                text=feature_imp['Importance'].apply(lambda x: f"{x:.3f}"),
+                textposition="outside", textfont=dict(size=10.5, family=FONT),
+                hovertemplate="<b>%{y}</b><br>Importance %{x:.3f}<extra></extra>",
+            ))
+            fig.update_layout(**plo(height=520))
+            fig.update_xaxes(**ax(title_text="Importance"))
+            fig.update_yaxes(tickfont=dict(size=10.5), gridcolor="rgba(0,0,0,0)")
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.success(
+                "**Facteurs dominants** : l'ancienneté (tenure) et le montant total "
+                "facturé (TotalCharges) concentrent l'essentiel du pouvoir prédictif, "
+                "suivis par la mensualité, le type de contrat et le type de connexion internet."
+            )
+        else:
+            st.info("Ce modèle ne fournit pas de feature importance native.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Validation croisée ───────────────────────────────────────
+    with tab5:
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Validation croisée 5-fold")
+        st.caption("Stabilité de l'AUC-ROC sur 5 découpages différents du jeu d'entraînement")
+
+        if cv_results is not None:
+            df_cv_sorted = cv_results.sort_values('AUC moyen', ascending=True)
+            fig = go.Figure(go.Bar(
+                x=df_cv_sorted['AUC moyen'], y=df_cv_sorted['Modèle'],
+                orientation='h',
+                error_x=dict(array=df_cv_sorted['Écart-type'], color=GRIS),
+                marker=dict(
+                    color=df_cv_sorted['AUC moyen'], colorscale=COLORSCALE_BLEU,
+                    showscale=False, line=dict(color="rgba(0,0,0,0)")
+                ),
+                text=df_cv_sorted['AUC moyen'].apply(lambda x: f"{x:.4f}"),
+                textposition="outside", textfont=dict(size=10.5, family=FONT),
+                hovertemplate="<b>%{y}</b><br>AUC moyen %{x:.4f}<extra></extra>",
+            ))
+            fig.update_layout(**plo(height=420))
+            fig.update_xaxes(**ax(title_text="AUC-ROC moyen"))
+            fig.update_yaxes(tickfont=dict(size=10.5), gridcolor="rgba(0,0,0,0)")
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Détail par modèle")
+            st.dataframe(cv_results, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.info("Résultats de validation croisée non disponibles.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════
+# QUALITÉ & MONITORING
+# ═══════════════════════════════════════════════════════════════════
+
+elif page == "Qualité & Monitoring":
+
+    st.markdown(f"""
+    <div class="page-banner">
+        <div>
+            <div class="banner-title">Qualité & Monitoring</div>
+            <div class="banner-desc">
+                Robustesse du modèle, généralisation et suivi
+                en conditions de production
+            </div>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="banner-badge">● Seuil optimisé {optimal_threshold:.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ============================================================
-# PAGE 4 : SIMULATEUR DE PRÉDICTION
-# ============================================================
-elif page == "🎯 Simulateur":
+    tab1, tab2, tab3 = st.tabs([
+        "Seuil de décision", "Courbe d'apprentissage", "Rapport Evidently"
+    ])
 
-    st.markdown("## 🎯 Simulateur de Prédiction")
-    st.markdown(
-        "<p style='color:#64748b;'>Prédisez le risque de churn pour un client fictif</p>",
-        unsafe_allow_html=True
-    )
-    st.divider()
+    # ── Seuil de décision ────────────────────────────────────────
+    with tab1:
+        best_name = 'XGBoost Optimisé' if 'XGBoost Optimisé' in models else list(models.keys())[0]
+        best_model = models[best_name]
+        y_proba = best_model.predict_proba(X_test_scaled)[:, 1]
+
+        thresholds = np.arange(0.1, 0.9, 0.01)
+        f1s = [f1_score(y_test, (y_proba >= t).astype(int)) for t in thresholds]
+        recalls = [recall_score(y_test, (y_proba >= t).astype(int)) for t in thresholds]
+        precisions = [precision_score(y_test, (y_proba >= t).astype(int)) for t in thresholds]
+
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown(f"### Optimisation du seuil - {best_name}")
+        st.caption(
+            "Par défaut, un modèle utilise un seuil de 0.50. Le seuil optimal "
+            f"qui maximise le F1-score a été identifié à {optimal_threshold:.2f}"
+        )
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=thresholds, y=f1s, name='F1-score',
+                                  line=dict(color=BLEU, width=2.5)))
+        fig.add_trace(go.Scatter(x=thresholds, y=recalls, name='Recall',
+                                  line=dict(color=ROUGE, width=2, dash='dash')))
+        fig.add_trace(go.Scatter(x=thresholds, y=precisions, name='Precision',
+                                  line=dict(color=VERT, width=2, dash='dash')))
+        fig.add_vline(x=optimal_threshold, line_dash='dot', line_color=ORANGE,
+                      annotation_text=f'Seuil optimal {optimal_threshold:.2f}',
+                      annotation_font=dict(size=11, color=ORANGE, family=FONT))
+        fig.add_vline(x=0.5, line_dash='dot', line_color=GRIS,
+                      annotation_text='Seuil par défaut 0.50',
+                      annotation_font=dict(size=10, color=GRIS, family=FONT),
+                      annotation_position="bottom right")
+        fig.update_layout(**plo(
+            height=440,
+            legend=dict(orientation="h", y=1.08, bgcolor="rgba(0,0,0,0)")
+        ))
+        fig.update_xaxes(**ax(title_text="Seuil de décision"))
+        fig.update_yaxes(**ay(title_text="Score"))
+        chart(fig)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        y_pred_05 = (y_proba >= 0.5).astype(int)
+        y_pred_opt = (y_proba >= optimal_threshold).astype(int)
+
+        with col1:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("##### Seuil 0.50 (défaut)")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("F1-score", f"{f1_score(y_test, y_pred_05):.4f}")
+            m2.metric("Recall", f"{recall_score(y_test, y_pred_05):.1%}")
+            m3.metric("Precision", f"{precision_score(y_test, y_pred_05):.1%}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col2:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown(f"##### Seuil {optimal_threshold:.2f} (optimal)")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("F1-score", f"{f1_score(y_test, y_pred_opt):.4f}")
+            m2.metric("Recall", f"{recall_score(y_test, y_pred_opt):.1%}")
+            m3.metric("Precision", f"{precision_score(y_test, y_pred_opt):.1%}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Courbe d'apprentissage ───────────────────────────────────
+    with tab2:
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Capacité de généralisation")
+        st.caption(
+            "Comparaison des performances entre entraînement et validation : "
+            "un écart faible indique l'absence de surapprentissage"
+        )
+
+        learning_curve_path = '../exports/11_learning_curve.png'
+        if os.path.exists(learning_curve_path):
+            st.image(learning_curve_path, use_container_width=True)
+        else:
+            st.warning(
+                "Image de la courbe d'apprentissage non trouvée. "
+                "Générez-la depuis le notebook 02."
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Rapport Evidently ─────────────────────────────────────────
+    with tab3:
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Rapport de monitoring Evidently")
+        st.caption(
+            "Simulation d'un environnement de production : comparaison entre "
+            "données d'entraînement (référence) et données de test (courant) "
+            "pour détecter un éventuel data drift"
+        )
+
+        evidently_path = '../exports/evidently_report.html'
+        if os.path.exists(evidently_path):
+            with open(evidently_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            st.components.v1.html(html_content, height=800, scrolling=True)
+        else:
+            st.warning(
+                "Rapport Evidently non trouvé. Générez-le depuis le "
+                "notebook 02 (cellule Monitoring)."
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════
+# SIMULATEUR
+# ═══════════════════════════════════════════════════════════════════
+
+elif page == "Simulateur":
+
+    st.markdown(f"""
+    <div class="page-banner">
+        <div>
+            <div class="banner-title">Simulateur de prédiction</div>
+            <div class="banner-desc">
+                Estimation du risque de churn pour un profil client donné
+            </div>
+        </div>
+        <div class="banner-badge">● {sim_model_choice}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col_form, col_result = st.columns([1, 1])
 
     with col_form:
-        st.markdown("### 📋 Profil client")
+        st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        st.markdown("### Profil client")
+        st.caption("Renseignez les caractéristiques du client à évaluer")
 
-        with st.expander("👤 Informations démographiques", expanded=True):
+        with st.expander("Informations démographiques", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
                 gender = st.selectbox("Genre", ["Male", "Female"])
@@ -817,68 +1185,39 @@ elif page == "🎯 Simulateur":
                 partner = st.selectbox("Partenaire", ["Yes", "No"])
                 dependents = st.selectbox("Dépendants", ["No", "Yes"])
 
-        with st.expander("📱 Services souscrits", expanded=True):
+        with st.expander("Services souscrits", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
                 phone = st.selectbox("Téléphone", ["Yes", "No"])
-                multiple_lines = st.selectbox(
-                    "Lignes multiples", ["No", "Yes", "No phone service"]
-                )
-                internet = st.selectbox(
-                    "Internet", ["Fiber optic", "DSL", "No"]
-                )
-                online_security = st.selectbox(
-                    "Sécurité en ligne", ["No", "Yes", "No internet service"]
-                )
-                online_backup = st.selectbox(
-                    "Sauvegarde en ligne", ["No", "Yes", "No internet service"]
-                )
+                multiple_lines = st.selectbox("Lignes multiples", ["No", "Yes", "No phone service"])
+                internet = st.selectbox("Internet", ["Fiber optic", "DSL", "No"])
+                online_security = st.selectbox("Sécurité en ligne", ["No", "Yes", "No internet service"])
+                online_backup = st.selectbox("Sauvegarde en ligne", ["No", "Yes", "No internet service"])
             with c2:
-                device_protection = st.selectbox(
-                    "Protection appareil", ["No", "Yes", "No internet service"]
-                )
-                tech_support = st.selectbox(
-                    "Support technique", ["No", "Yes", "No internet service"]
-                )
-                streaming_tv = st.selectbox(
-                    "Streaming TV", ["No", "Yes", "No internet service"]
-                )
-                streaming_movies = st.selectbox(
-                    "Streaming films", ["No", "Yes", "No internet service"]
-                )
+                device_protection = st.selectbox("Protection appareil", ["No", "Yes", "No internet service"])
+                tech_support = st.selectbox("Support technique", ["No", "Yes", "No internet service"])
+                streaming_tv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
+                streaming_movies = st.selectbox("Streaming films", ["No", "Yes", "No internet service"])
 
-        with st.expander("💳 Contrat & Facturation", expanded=True):
+        with st.expander("Contrat & Facturation", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
-                contract = st.selectbox(
-                    "Type de contrat",
-                    ["Month-to-month", "One year", "Two year"]
-                )
+                contract = st.selectbox("Contrat", ["Month-to-month", "One year", "Two year"])
                 paperless = st.selectbox("Facturation dématérialisée", ["Yes", "No"])
                 payment = st.selectbox(
                     "Mode de paiement",
-                    ["Electronic check", "Mailed check",
-                     "Bank transfer (automatic)", "Credit card (automatic)"]
+                    ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"]
                 )
             with c2:
                 tenure = st.slider("Ancienneté (mois)", 0, 72, 12)
                 monthly = st.slider("Mensualité (€)", 18, 120, 65)
                 total = st.slider("Total facturé (€)", 0, 9000, monthly * tenure)
 
-        model_choice = st.selectbox(
-            "Modèle de prédiction",
-            list(models.keys()),
-            index=3
-        )
+        predict_btn = st.button("Lancer la prédiction", use_container_width=True, type="primary")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        predict_btn = st.button("🔮 Lancer la prédiction", use_container_width=True)
-
-    # ---- RÉSULTAT ----
     with col_result:
-        st.markdown("### 📊 Résultat de la prédiction")
-
         if predict_btn:
-            # Construction du vecteur client
             client = {
                 'gender': 1 if gender == 'Male' else 0,
                 'SeniorCitizen': 1 if senior == 'Yes' else 0,
@@ -913,162 +1252,94 @@ elif page == "🎯 Simulateur":
             }
 
             X_client = pd.DataFrame([client])[feature_names]
-            model = models[model_choice]
-
-            if 'Logistique' in model_choice:
-                X_input = scaler.transform(X_client)
-            else:
-                X_input = X_client
+            X_input = scaler.transform(X_client)
+            model = models[sim_model_choice]
 
             proba = model.predict_proba(X_input)[0][1]
-            prediction = model.predict(X_input)[0]
+            threshold_used = optimal_threshold if sim_use_optimal else 0.5
+            prediction = int(proba >= threshold_used)
 
-            # Niveau de risque
             if proba < 0.35:
-                risk_level = "FAIBLE"
-                risk_color = "#2ecc71"
-                risk_icon = "✅"
-                risk_msg = "Ce client présente un faible risque de résiliation."
+                risk_level, color = "FAIBLE", VERT
             elif proba < 0.60:
-                risk_level = "MODÉRÉ"
-                risk_color = "#f59e0b"
-                risk_icon = "⚠️"
-                risk_msg = "Ce client présente un risque modéré. Une action préventive est conseillée."
+                risk_level, color = "MODÉRÉ", ORANGE
             else:
-                risk_level = "ÉLEVÉ"
-                risk_color = "#e74c3c"
-                risk_icon = "🚨"
-                risk_msg = "Ce client est très susceptible de résilier. Intervention urgente recommandée."
+                risk_level, color = "ÉLEVÉ", ROUGE
 
-            # Affichage résultat principal
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
             st.markdown(f"""
-            <div style='background:linear-gradient(135deg,#1e2a45,#2d3561);
-                        border:2px solid {risk_color}; border-radius:16px;
-                        padding:30px; text-align:center; margin-bottom:20px;'>
-                <div style='font-size:3.5em;'>{risk_icon}</div>
-                <div style='font-size:1em; color:#94a3b8; margin:8px 0;'>
-                    Probabilité de churn
+            <div style="text-align:center;padding:1rem 0 0.5rem 0;">
+                <div style="font-size:0.85rem;opacity:0.6;">Probabilité de churn</div>
+                <div style="font-size:3rem;font-weight:800;margin:0.3rem 0;color:{color};">
+                    {proba*100:.1f} %
                 </div>
-                <div style='font-size:3.8em; font-weight:900; color:{risk_color};'>
-                    {proba*100:.1f}%
-                </div>
-                <div style='background:{risk_color}; color:white; border-radius:20px;
-                            padding:6px 20px; display:inline-block; font-weight:700;
-                            font-size:1.1em; margin-top:10px;'>
+                <span class="risk-pill" style="background:{color}1a;color:{color};
+                            font-size:0.9rem;padding:0.4rem 1.2rem;">
                     RISQUE {risk_level}
-                </div>
-                <div style='color:#94a3b8; margin-top:15px; font-size:0.9em;'>
-                    {risk_msg}
+                </span>
+                <div style="opacity:0.55;margin-top:0.75rem;font-size:0.82rem;">
+                    Décision au seuil {threshold_used:.2f} :
+                    {'Churn probable' if prediction else 'Client stable'}
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # Jauge de probabilité
             fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=proba * 100,
-                number={'suffix': '%', 'font': {'size': 40, 'color': '#e2e8f0'}},
+                mode="gauge+number", value=proba * 100,
+                number={'suffix': '%', 'font': {'size': 36}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickcolor': '#e2e8f0'},
-                    'bar': {'color': risk_color, 'thickness': 0.3},
-                    'bgcolor': '#1a1f2e',
-                    'bordercolor': '#3d4f7c',
+                    'axis': {'range': [0, 100]},
+                    'bar': {'color': color},
                     'steps': [
-                        {'range': [0, 35], 'color': '#1a3a2a'},
-                        {'range': [35, 60], 'color': '#3a2e1a'},
-                        {'range': [60, 100], 'color': '#3a1a1a'},
+                        {'range': [0, 35], 'color': 'rgba(46,125,50,0.12)'},
+                        {'range': [35, 60], 'color': 'rgba(218,165,32,0.12)'},
+                        {'range': [60, 100], 'color': 'rgba(193,0,42,0.12)'},
                     ],
-                    'threshold': {
-                        'line': {'color': 'white', 'width': 3},
-                        'thickness': 0.8,
-                        'value': proba * 100
-                    }
+                    'threshold': {'line': {'width': 3}, 'thickness': 0.8,
+                                  'value': threshold_used * 100}
                 }
             ))
-            fig.update_layout(
-                paper_bgcolor='#1e2a45',
-                font=dict(color='#e2e8f0'),
-                height=280,
-                margin=dict(t=20, b=20)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(**plo(height=240, margin=dict(t=10, b=10)))
+            chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            # Facteurs de risque du profil
-            st.markdown("#### 🔍 Facteurs de risque détectés")
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+            st.markdown("### Facteurs de risque détectés")
+
             risk_factors = []
             if tenure < 12:
-                risk_factors.append(("🕐", "Nouveau client", f"Ancienneté : {tenure} mois"))
+                risk_factors.append(("Nouveau client", f"Ancienneté : {tenure} mois"))
             if contract == "Month-to-month":
-                risk_factors.append(("📄", "Contrat mensuel", "Engagement faible"))
+                risk_factors.append(("Contrat mensuel", "Engagement faible"))
             if internet == "Fiber optic":
-                risk_factors.append(("🌐", "Fiber optic", "Service à risque élevé"))
+                risk_factors.append(("Fiber optic", "Service à risque élevé"))
             if online_security == "No":
-                risk_factors.append(("🔓", "Sans sécurité en ligne", "Facteur de risque"))
+                risk_factors.append(("Sans sécurité en ligne", "Facteur de risque"))
             if tech_support == "No":
-                risk_factors.append(("🛠️", "Sans support technique", "Facteur de risque"))
+                risk_factors.append(("Sans support technique", "Facteur de risque"))
             if payment == "Electronic check":
-                risk_factors.append(("💳", "Chèque électronique", "Mode de paiement à risque"))
+                risk_factors.append(("Chèque électronique", "Mode de paiement à risque"))
             if monthly > 80:
-                risk_factors.append(("💰", "Mensualité élevée", f"{monthly}€/mois"))
+                risk_factors.append(("Mensualité élevée", f"{monthly} €/mois"))
 
             if risk_factors:
-                for icon, title, desc in risk_factors:
+                for title, desc in risk_factors:
                     st.markdown(f"""
-                    <div style='background:#1a1f2e; border-left:3px solid #e74c3c;
-                                border-radius:6px; padding:10px 14px; margin:5px 0;
-                                display:flex; align-items:center;'>
-                        <span style='margin-right:10px; font-size:1.2em;'>{icon}</span>
-                        <div>
-                            <span style='color:#e2e8f0; font-weight:600;'>{title}</span>
-                            <span style='color:#64748b; font-size:0.85em;
-                                         margin-left:8px;'>{desc}</span>
-                        </div>
+                    <div style="display:flex;justify-content:space-between;
+                                padding:0.5rem 0;border-bottom:1px solid rgba(128,128,128,0.12);">
+                        <span style="font-weight:600;font-size:0.85rem;">{title}</span>
+                        <span style="opacity:0.55;font-size:0.8rem;">{desc}</span>
                     </div>
                     """, unsafe_allow_html=True)
             else:
                 st.success("Aucun facteur de risque majeur détecté pour ce profil.")
-
-            # Recommandations
-            st.markdown("#### 💡 Recommandations")
-            if proba >= 0.35:
-                recs = []
-                if contract == "Month-to-month":
-                    recs.append("Proposer une offre de passage en contrat annuel ou bi-annuel")
-                if internet == "Fiber optic":
-                    recs.append("Vérifier la qualité de service Fiber optic et proposer un geste commercial")
-                if online_security == "No":
-                    recs.append("Offrir un mois de sécurité en ligne gratuit")
-                if tech_support == "No":
-                    recs.append("Inclure le support technique dans le prochain renouvellement")
-                if tenure < 12:
-                    recs.append("Mettre en place un programme de fidélisation nouveaux clients")
-                if not recs:
-                    recs.append("Contacter le client pour un bilan de satisfaction")
-
-                for rec in recs:
-                    st.markdown(f"""
-                    <div style='background:#1a2e1a; border-left:3px solid #2ecc71;
-                                border-radius:6px; padding:10px 14px; margin:5px 0;
-                                color:#a7f3d0;'>
-                        💡 {rec}
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style='background:#1a2e1a; border-left:3px solid #2ecc71;
-                            border-radius:6px; padding:15px; color:#a7f3d0;'>
-                    ✅ Ce client est stable. Continuer le suivi de routine.
-                </div>
-                """, unsafe_allow_html=True)
-
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
+            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
             st.markdown("""
-            <div style='background:#1e2a45; border:2px dashed #3d4f7c;
-                        border-radius:16px; padding:60px 30px; text-align:center;'>
-                <div style='font-size:3em; margin-bottom:15px;'>🔮</div>
-                <div style='color:#64748b; font-size:1.1em;'>
-                    Remplissez le profil client et cliquez sur<br>
-                    <b style='color:#60a5fa;'>Lancer la prédiction</b>
-                </div>
+            <div style="text-align:center;padding:3.5rem 1rem;opacity:0.55;">
+                Renseignez le profil client puis cliquez sur<br>
+                <b>Lancer la prédiction</b>
             </div>
             """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
