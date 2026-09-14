@@ -827,7 +827,7 @@ elif page == "Performance des modèles":
     # ── Courbes ROC ──────────────────────────────────────────────
     with tab2:
         st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-        st.markdown("### Courbes ROC — comparaison des modèles")
+        st.markdown("### Courbes ROC - comparaison des modèles")
         st.caption(
             "Plus une courbe se rapproche du coin supérieur gauche, "
             "meilleur est le modèle"
