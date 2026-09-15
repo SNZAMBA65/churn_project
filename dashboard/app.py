@@ -304,7 +304,7 @@ X_test, X_test_scaled, y_test = prepare_test_data()
 
 NB_CLIENTS = len(df)
 TAUX_CHURN = (df['Churn'] == 'Yes').mean() * 100
-BEST_ROW = results.loc[results['AUC-ROC'].idxmax()]
+BEST_ROW = results.loc[results['Modèle'] == 'XGBoost'].iloc[0]
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 

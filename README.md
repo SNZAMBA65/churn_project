@@ -8,7 +8,7 @@ Projet #3 - Introduction au Machine Learning
 
 ## À propos
 
-Ce projet construit un pipeline complet de Machine Learning pour prédire le churn des clients d'un opérateur télécom. L'objectif est d'anticiper les résiliations avant qu'elles ne surviennent, afin de permettre des actions de rétention ciblées.
+Ce projet construit un pipeline complet de Machine Learning pour prédire le churn des clients d'un opérateur télécom, c'est-à-dire leur risque de résilier leur abonnement. L'objectif est d'anticiper les résiliations avant qu'elles ne surviennent afin de permettre des actions de rétention ciblées.
 
 Le pipeline couvre l'intégralité de la chaîne : exploration et nettoyage des données, encodage et rééquilibrage des classes via SMOTE, entraînement et comparaison de 5 algorithmes (Régression Logistique, Arbre de Décision, Random Forest, XGBoost, LightGBM), optimisation par GridSearchCV, validation croisée 5-fold, explicabilité individuelle via SHAP, monitoring du data drift avec Evidently et exposition du modèle via une API REST FastAPI. Le tout est déployé dans un dashboard Streamlit interactif accessible en ligne.
 
@@ -19,11 +19,11 @@ Le pipeline couvre l'intégralité de la chaîne : exploration et nettoyage des 
 **Machine Learning** : scikit-learn, XGBoost, LightGBM, SHAP  
 **Données** : pandas, numpy, imbalanced-learn (SMOTE)  
 **Visualisations** : matplotlib, seaborn, plotly  
-**Dashboard** : Streamlit (déployé sur Streamlit Cloud)  
+**Dashboard** : Streamlit, déployé sur Streamlit Cloud  
 **API REST** : FastAPI, uvicorn  
-**Monitoring** : Evidently (data drift + performance)  
-**Tests** : pytest (6 tests unitaires)  
-**CI/CD** : GitHub Actions (flake8 + pytest)  
+**Monitoring** : Evidently  
+**Tests** : pytest  
+**CI/CD** : GitHub Actions  
 **Versionnement** : Git, GitHub
 
 ---
@@ -53,24 +53,35 @@ Dataset Telco Customer Churn (Kaggle)
          |
          v
   Streamlit Cloud
-  (déploiement en ligne)
 ```
 
 ---
 
 ## Résultats
 
-**Modèle retenu : XGBoost Optimisé**
+**Modèle retenu : XGBoost**
 
 | Métrique | Valeur |
 |---|---|
-| AUC-ROC | 0.8420 |
-| Accuracy | 76 % |
-| Recall (Churné) | 79 % |
-| F1-score | 0.64 |
-| Seuil de décision | 0.10 (optimisé) |
+| AUC-ROC | 0.8266 |
+| Accuracy | 75.0 % |
+| Recall (Churné) | 75.7 % |
+| F1-score | 0.62 |
+| Seuil de décision | 0.10 |
 
-Sur 374 clients ayant réellement churné dans le jeu de test, le modèle en détecte **295** (79 %).
+Sur 374 clients ayant réellement churné dans le jeu de test, le modèle en détecte **283**, soit 75.7 %.
+
+XGBoost a été retenu pour sa feature importance native précise et la disponibilité d'un explainer SHAP dédié aux modèles de gradient boosting, ce qui permet d'expliquer individuellement chaque prédiction.
+
+**Comparaison des 5 algorithmes :**
+
+| Modèle | Accuracy | Recall | F1 | AUC-ROC |
+|---|---|---|---|---|
+| Régression Logistique | 73.8 % | 79.7 % | 0.62 | 0.8405 |
+| Arbre de Décision | 74.4 % | 75.4 % | 0.61 | 0.8186 |
+| Random Forest | 77.6 % | 65.5 % | 0.61 | 0.8319 |
+| **XGBoost** | **75.0 %** | **75.7 %** | **0.62** | **0.8266** |
+| LightGBM | 77.4 % | 60.4 % | 0.59 | 0.8284 |
 
 **Top 5 facteurs de churn (SHAP) :**
 
@@ -100,7 +111,6 @@ churn_project/
 +-- exports/                                # Fichiers générés par les notebooks
 |   +-- dataset_clean.csv
 |   +-- resultats_modeles.csv
-|   +-- validation_croisee.csv
 |   +-- shap_importance.csv
 |   +-- evidently_report.html
 |   +-- 01_distribution_churn.png
@@ -150,20 +160,17 @@ cd churn_project
 ```bash
 python -m venv venv
 source venv/Scripts/activate    # Windows
-# source venv/bin/activate      # Linux / macOS
+source venv/bin/activate        # Linux et macOS
 pip install -r requirements.txt
 ```
 
 ### 3. Télécharger le dataset
 
 ```bash
-# Via l'API Kaggle
 kaggle datasets download -d blastchar/telco-customer-churn -p data/ --unzip
-
-# Ou manuellement depuis :
-# https://www.kaggle.com/datasets/blastchar/telco-customer-churn
-# Placer le CSV dans data/
 ```
+
+Ou manuellement depuis https://www.kaggle.com/datasets/blastchar/telco-customer-churn en plaçant le CSV dans `data/`.
 
 ### 4. Exécuter les notebooks
 
@@ -183,7 +190,7 @@ cd dashboard
 streamlit run app.py
 ```
 
-Ouvrir **http://localhost:8501**
+Ouvrir http://localhost:8501
 
 ### 6. Lancer l'API REST
 
@@ -191,7 +198,7 @@ Ouvrir **http://localhost:8501**
 uvicorn api.main:app --reload
 ```
 
-Documentation interactive disponible sur **http://localhost:8000/docs**
+Documentation interactive sur http://localhost:8000/docs
 
 ---
 
@@ -201,11 +208,11 @@ Le dashboard interactif comprend 5 pages :
 
 | Page | Contenu |
 |---|---|
-| Vue d'ensemble | KPIs clés, résumé exécutif, facteurs de risque majeurs |
+| Vue d'ensemble | KPIs, résumé du projet, facteurs de risque majeurs |
 | Analyse exploratoire | Visualisations EDA interactives par thème |
 | Performance des modèles | Courbes ROC, matrices de confusion, feature importance, validation croisée |
-| Qualité & Monitoring | Seuil de décision optimisé, learning curve, rapport Evidently |
-| Simulateur | Prédiction temps réel avec détection des risques et recommandations |
+| Qualité et Monitoring | Seuil de décision optimisé, learning curve, rapport Evidently |
+| Simulateur | Prédiction temps réel avec facteurs de risque et recommandations |
 
 Compatible light/dark mode via les variables CSS natives de Streamlit.
 
@@ -218,9 +225,9 @@ L'API FastAPI expose 4 endpoints :
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/` | Statut de l'API |
-| GET | `/health` | Santé du service et informations du modèle |
-| POST | `/predict` | Prédiction individuelle avec explicabilité SHAP |
-| POST | `/predict/batch` | Prédiction en lot (max 100 clients) |
+| GET | `/health` | Informations du modèle en service |
+| POST | `/predict` | Prédiction individuelle avec facteurs SHAP |
+| POST | `/predict/batch` | Prédiction en lot, max 100 clients |
 
 ### Exemple de requête
 
@@ -257,7 +264,7 @@ curl -X POST "http://localhost:8000/predict" \
   "probabilite_churn": 0.8823,
   "probabilite_pct": "88.2 %",
   "prediction": "Churner",
-  "niveau_risque": "ÉLEVÉ",
+  "niveau_risque": "ELEVE",
   "seuil_utilise": 0.1,
   "facteurs_principaux": [
     {
@@ -291,7 +298,7 @@ src/preprocessing.py
 src/models.py
     get_models()                 # Dictionnaire des 5 modèles
     get_param_grids()            # Grilles GridSearchCV
-    train_all_models()           # Entrainement et sauvegarde
+    train_all_models()           # Entraînement et sauvegarde
     optimize_model()             # GridSearchCV sur un modèle
     cross_validate_models()      # Validation croisée 5-fold
 
@@ -299,7 +306,7 @@ src/evaluation.py
     evaluate_model()             # Métriques pour un modèle
     evaluate_all_models()        # Comparaison de tous les modèles
     plot_roc_curves()            # Courbes ROC comparatives
-    plot_confusion_matrices()    # Matrices de confusion côte à côte
+    plot_confusion_matrices()    # Matrices de confusion
     plot_learning_curve()        # Détection overfitting/underfitting
     find_optimal_threshold()     # Optimisation du seuil de décision
 ```
@@ -330,10 +337,10 @@ pytest tests/ -v
 Le pipeline GitHub Actions se déclenche à chaque push sur `main` :
 
 1. Configuration Python 3.11
-2. Installation des dépendances (`requirements.txt`)
-3. Vérification du style de code (`flake8` - PEP 8)
-4. Vérification des imports `src/`
-5. Exécution des 6 tests unitaires (`pytest`)
+2. Installation des dépendances
+3. Vérification du style de code avec flake8
+4. Vérification des imports src/
+5. Exécution des 6 tests unitaires
 
 ---
 
@@ -362,13 +369,12 @@ Le pipeline GitHub Actions se déclenche à chaque push sur `main` :
 
 - **Dashboard en ligne** : https://nzb-churn-project.streamlit.app/
 - **GitHub** : https://github.com/SNZAMBA65/churn_project
-- **API locale** : http://localhost:8000/docs
 - **Dataset** : https://www.kaggle.com/datasets/blastchar/telco-customer-churn
 
 ---
 
 ## Contexte académique
 
-Projet réalisé dans le cadre du Mastère DPIA 1 - Directeur de Projet en Intelligence Artificielle à Fonderie de l'Image (Paris), année 2025-2026.
+Projet réalisé dans le cadre du Mastère DPIA 1 - Directeur de Projet en Intelligence Artificielle à la Fonderie de l'Image (Paris), année 2025-2026.
 
-Dataset source : [Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) - IBM Sample Data (Kaggle).
+Dataset source : Telco Customer Churn, IBM Sample Data, disponible sur Kaggle.
